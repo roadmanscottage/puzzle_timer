@@ -285,7 +285,7 @@ private fun ActionButtonsSection(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Search for a Puzzle Button
+        // Search for Completed Puzzle Button
         OutlinedButton(
             onClick = onSearchPuzzle,
             modifier = Modifier.fillMaxWidth()
@@ -296,7 +296,7 @@ private fun ActionButtonsSection(
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Search for a Puzzle")
+            Text("Search for Completed Puzzle")
         }
 
         // Start a New Puzzle Button

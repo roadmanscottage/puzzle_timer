@@ -83,14 +83,78 @@ class PuzzleDetailsViewModel(
 
     /**
      * Delete a session from the database.
-     * Reloads the puzzle data to update the UI.
+     * Recalculates puzzle statistics and reloads the puzzle data to update the UI.
      * @param session The session to delete
      */
     fun deleteSession(session: PuzzleSession) {
         viewModelScope.launch {
             sessionRepository.deleteSession(session)
-            // Reload puzzle to update UI
-            _currentPuzzleId?.let { loadPuzzle(it) }
+
+            // Recalculate puzzle stats based on remaining sessions
+            _currentPuzzleId?.let { puzzleId ->
+                val remainingSessions = sessionRepository.getSessionsForPuzzle(puzzleId).firstOrNull() ?: emptyList()
+                puzzleRepository.recalculatePuzzleStats(puzzleId, remainingSessions)
+
+                // Reload puzzle to update UI
+                loadPuzzle(puzzleId)
+            }
+        }
+    }
+
+    /**
+     * Restore a previously deleted session.
+     * Used for undo functionality after swipe-to-delete.
+     * Recalculates puzzle statistics and reloads the puzzle data.
+     * @param session The session to restore
+     */
+    fun restoreSession(session: PuzzleSession) {
+        viewModelScope.launch {
+            sessionRepository.insertSession(session)
+
+            // Recalculate puzzle stats including the restored session
+            _currentPuzzleId?.let { puzzleId ->
+                val allSessions = sessionRepository.getSessionsForPuzzle(puzzleId).firstOrNull() ?: emptyList()
+                puzzleRepository.recalculatePuzzleStats(puzzleId, allSessions)
+
+                // Reload puzzle to update UI
+                loadPuzzle(puzzleId)
+            }
+        }
+    }
+
+    /**
+     * Update puzzle details (name, piece count, image).
+     * @param name The new puzzle name
+     * @param pieceCount The new piece count
+     * @param imageUri The new image URI (or null to keep existing)
+     */
+    suspend fun updatePuzzleDetails(
+        name: String,
+        pieceCount: Int,
+        imageUri: String?
+    ): Result<Unit> {
+        val currentPuzzle = _puzzle.value ?: return Result.failure(Exception("No puzzle loaded"))
+
+        // Validate inputs
+        if (name.isBlank()) {
+            return Result.failure(Exception("Puzzle name cannot be empty"))
+        }
+
+        if (pieceCount <= 0) {
+            return Result.failure(Exception("Piece count must be greater than 0"))
+        }
+
+        try {
+            val updatedPuzzle = currentPuzzle.copy(
+                name = name.trim(),
+                pieceCount = pieceCount,
+                imageUri = imageUri ?: currentPuzzle.imageUri
+            )
+
+            puzzleRepository.updatePuzzle(updatedPuzzle)
+            return Result.success(Unit)
+        } catch (e: Exception) {
+            return Result.failure(e)
         }
     }
 

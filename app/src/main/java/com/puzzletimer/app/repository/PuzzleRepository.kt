@@ -2,6 +2,7 @@ package com.puzzletimer.app.repository
 
 import com.puzzletimer.app.data.dao.PuzzleDao
 import com.puzzletimer.app.data.model.Puzzle
+import com.puzzletimer.app.data.model.PuzzleSession
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 
@@ -107,5 +108,49 @@ class PuzzleRepository(private val puzzleDao: PuzzleDao) {
         )
 
         puzzleDao.updatePuzzle(updatedPuzzle)
+    }
+
+    /**
+     * Recalculate puzzle statistics based on all completed sessions.
+     * This is called after a session is deleted or restored to ensure statistics are accurate.
+     * @param puzzleId The ID of the puzzle to recalculate
+     * @param completedSessions List of all completed sessions for this puzzle
+     */
+    suspend fun recalculatePuzzleStats(puzzleId: Long, completedSessions: List<PuzzleSession>) {
+        val puzzleFlow = puzzleDao.getPuzzleById(puzzleId)
+        val puzzle = puzzleFlow.firstOrNull() ?: return
+
+        // Filter to only completed sessions with valid elapsed time
+        val validSessions = completedSessions.filter { it.isCompleted && it.elapsedTimeMillis > 0 }
+
+        if (validSessions.isEmpty()) {
+            // No completed sessions - reset all stats
+            val updatedPuzzle = puzzle.copy(
+                firstCompletedDate = null,
+                lastCompletedDate = null,
+                totalCompletions = 0,
+                bestTimeMillis = null,
+                averageTimeMillis = null
+            )
+            puzzleDao.updatePuzzle(updatedPuzzle)
+        } else {
+            // Calculate stats from remaining sessions
+            val bestTime = validSessions.minOf { it.elapsedTimeMillis }
+            val averageTime = validSessions.map { it.elapsedTimeMillis }.average().toLong()
+            val totalCompletions = validSessions.size
+
+            // Find first and last completion dates
+            val firstCompleted = validSessions.minOfOrNull { it.endTime ?: it.startTime }
+            val lastCompleted = validSessions.maxOfOrNull { it.endTime ?: it.startTime }
+
+            val updatedPuzzle = puzzle.copy(
+                firstCompletedDate = firstCompleted,
+                lastCompletedDate = lastCompleted,
+                totalCompletions = totalCompletions,
+                bestTimeMillis = bestTime,
+                averageTimeMillis = averageTime
+            )
+            puzzleDao.updatePuzzle(updatedPuzzle)
+        }
     }
 }

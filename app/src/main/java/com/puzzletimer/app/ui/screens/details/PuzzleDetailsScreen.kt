@@ -1,8 +1,13 @@
 package com.puzzletimer.app.ui.screens.details
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +23,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -35,17 +44,27 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +72,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -85,6 +105,10 @@ fun PuzzleDetailsScreen(
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Edit dialog state
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(puzzleId) {
         actualViewModel.loadPuzzle(puzzleId)
@@ -110,10 +134,11 @@ fun PuzzleDetailsScreen(
                         }
                     },
                     icon = { Icon(Icons.Default.PlayArrow, "Start") },
-                    text = { Text("Start New Session") }
+                    text = { Text("Do Puzzle Again") }
                 )
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         if (isLoading || puzzle == null) {
             Box(
@@ -144,7 +169,7 @@ fun PuzzleDetailsScreen(
                     PuzzleTitleSection(
                         puzzle = puzzle!!,
                         onEditClick = {
-                            Toast.makeText(context, "Edit feature coming soon!", Toast.LENGTH_SHORT).show()
+                            showEditDialog = true
                         }
                     )
                 }
@@ -196,7 +221,24 @@ fun PuzzleDetailsScreen(
                     items(sessions) { session ->
                         SessionHistoryItem(
                             session = session,
-                            onDelete = { actualViewModel.deleteSession(it) }
+                            onDelete = { deletedSession ->
+                                scope.launch {
+                                    // Delete the session
+                                    actualViewModel.deleteSession(deletedSession)
+
+                                    // Show snackbar with undo option
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Session deleted",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Short
+                                    )
+
+                                    // If user clicks undo, restore the session
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        actualViewModel.restoreSession(deletedSession)
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -204,6 +246,32 @@ fun PuzzleDetailsScreen(
                 item { Spacer(modifier = Modifier.height(80.dp)) } // Space for FAB
             }
         }
+    }
+
+    // Edit Dialog
+    if (showEditDialog && puzzle != null) {
+        EditPuzzleDialog(
+            puzzle = puzzle!!,
+            onDismiss = { showEditDialog = false },
+            onSave = { name, pieceCount, imageUri ->
+                scope.launch {
+                    val result = actualViewModel.updatePuzzleDetails(name, pieceCount, imageUri)
+                    if (result.isSuccess) {
+                        showEditDialog = false
+                        snackbarHostState.showSnackbar(
+                            message = "Puzzle updated successfully",
+                            duration = SnackbarDuration.Short
+                        )
+                    } else {
+                        val errorMessage = result.exceptionOrNull()?.message ?: "Failed to update puzzle"
+                        snackbarHostState.showSnackbar(
+                            message = errorMessage,
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -434,9 +502,12 @@ private fun SessionHistoryItem(
     session: PuzzleSession,
     onDelete: (PuzzleSession) -> Unit
 ) {
+    var isDismissed by remember { mutableStateOf(false) }
+
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = {
             if (it == SwipeToDismissBoxValue.StartToEnd || it == SwipeToDismissBoxValue.EndToStart) {
+                isDismissed = true
                 onDelete(session)
                 true
             } else {
@@ -510,4 +581,212 @@ private fun formatDate(timestamp: Long?): String {
     if (timestamp == null) return "Never"
     val sdf = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+/**
+ * Dialog for editing puzzle details (name, piece count, image).
+ */
+@Composable
+private fun EditPuzzleDialog(
+    puzzle: Puzzle,
+    onDismiss: () -> Unit,
+    onSave: (name: String, pieceCount: Int, imageUri: String?) -> Unit
+) {
+    var editedName by remember { mutableStateOf(puzzle.name) }
+    var editedPieceCount by remember { mutableStateOf(puzzle.pieceCount.toString()) }
+    var editedImageUri by remember { mutableStateOf<String?>(puzzle.imageUri) }
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var pieceCountError by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+
+    // Photo picker launcher
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let {
+            // Take persistable URI permission
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                editedImageUri = it.toString()
+            } catch (e: SecurityException) {
+                // If we can't get persistable permission, still use the URI
+                // (it might work for this session)
+                editedImageUri = it.toString()
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Edit Puzzle",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Puzzle Name Field
+                OutlinedTextField(
+                    value = editedName,
+                    onValueChange = {
+                        editedName = it
+                        nameError = if (it.isBlank()) "Name cannot be empty" else null
+                    },
+                    label = { Text("Puzzle Name") },
+                    isError = nameError != null,
+                    supportingText = nameError?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                // Piece Count Field
+                OutlinedTextField(
+                    value = editedPieceCount,
+                    onValueChange = {
+                        editedPieceCount = it
+                        pieceCountError = when {
+                            it.isBlank() -> "Piece count cannot be empty"
+                            it.toIntOrNull() == null -> "Must be a valid number"
+                            it.toInt() <= 0 -> "Must be greater than 0"
+                            else -> null
+                        }
+                    },
+                    label = { Text("Piece Count") },
+                    isError = pieceCountError != null,
+                    supportingText = pieceCountError?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+
+                // Image Preview and Change Button
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Puzzle Image",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Image Preview Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .clickable {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (editedImageUri != null) {
+                                AsyncImage(
+                                    model = editedImageUri,
+                                    contentDescription = "Puzzle Image Preview",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AddPhotoAlternate,
+                                        contentDescription = "Add Photo",
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Tap to select image",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Change/Remove Image Button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddPhotoAlternate,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (editedImageUri != null) "Change" else "Add")
+                        }
+
+                        if (editedImageUri != null) {
+                            OutlinedButton(
+                                onClick = { editedImageUri = null },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Remove")
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    // Validate before saving
+                    val name = editedName.trim()
+                    val pieceCount = editedPieceCount.toIntOrNull()
+
+                    when {
+                        name.isBlank() -> nameError = "Name cannot be empty"
+                        pieceCount == null -> pieceCountError = "Must be a valid number"
+                        pieceCount <= 0 -> pieceCountError = "Must be greater than 0"
+                        else -> {
+                            onSave(name, pieceCount, editedImageUri)
+                        }
+                    }
+                },
+                enabled = nameError == null && pieceCountError == null &&
+                        editedName.isNotBlank() && editedPieceCount.toIntOrNull() != null
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
