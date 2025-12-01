@@ -45,13 +45,17 @@ class HomeViewModel(
     /**
      * Load home screen data: check for paused sessions first, then load last completed puzzle.
      * Paused sessions take priority and will be displayed prominently.
+     * This method is public so it can be called to refresh data when returning to home screen.
      */
-    private fun loadHomeScreenData() {
+    fun loadHomeScreenData() {
         viewModelScope.launch {
             _isLoading.value = true
 
             // First, check for paused sessions
             val pausedSession = sessionRepository.getMostRecentPausedSession().firstOrNull()
+
+            // Clear previous paused session info
+            _pausedSessionInfo.value = null
 
             if (pausedSession != null) {
                 // Load the puzzle for this paused session

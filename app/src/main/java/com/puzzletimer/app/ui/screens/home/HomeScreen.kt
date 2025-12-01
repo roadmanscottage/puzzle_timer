@@ -66,6 +66,11 @@ fun HomeScreen(
     val pausedSessionInfo by actualViewModel.pausedSessionInfo.collectAsState()
     val isLoading by actualViewModel.isLoading.collectAsState()
 
+    // Reload data when home screen becomes visible
+    LaunchedEffect(Unit) {
+        actualViewModel.loadHomeScreenData()
+    }
+
     Scaffold(
         topBar = { HomeTopAppBar() },
     ) { paddingValues ->
