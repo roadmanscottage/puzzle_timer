@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -238,6 +239,10 @@ fun PuzzleDetailsScreen(
                                         actualViewModel.restoreSession(deletedSession)
                                     }
                                 }
+                            },
+                            onResume = { pausedSession ->
+                                // Navigate to timer screen with paused session
+                                onNavigateToTimer(pausedSession.id)
                             }
                         )
                     }
@@ -500,9 +505,11 @@ private fun DetailRow(label: String, value: String) {
 @Composable
 private fun SessionHistoryItem(
     session: PuzzleSession,
-    onDelete: (PuzzleSession) -> Unit
+    onDelete: (PuzzleSession) -> Unit,
+    onResume: (PuzzleSession) -> Unit
 ) {
     var isDismissed by remember { mutableStateOf(false) }
+    val isPaused = session.pausedAt != null && !session.isCompleted
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = {
@@ -542,28 +549,106 @@ private fun SessionHistoryItem(
         }
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (isPaused) {
+                        Modifier.clickable { onResume(session) }
+                    } else {
+                        Modifier
+                    }
+                ),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
+                containerColor = if (isPaused) {
+                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                }
+            ),
+            border = if (isPaused) {
+                BorderStroke(2.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f))
+            } else {
+                null
+            }
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = formatDate(session.startTime),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatTime(session.elapsedTimeMillis),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                // Left side: Date and paused indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = formatDate(session.startTime),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isPaused) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+
+                    // Paused badge
+                    if (isPaused) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Pause,
+                                    contentDescription = "Paused",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSecondary
+                                )
+                                Text(
+                                    text = "Paused",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Right side: Time and resume icon
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = formatTime(session.elapsedTimeMillis),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isPaused) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+
+                    // Resume icon for paused sessions
+                    if (isPaused) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Resume",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                }
             }
         }
     }
