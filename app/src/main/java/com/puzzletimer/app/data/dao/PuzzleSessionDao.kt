@@ -41,6 +41,14 @@ interface PuzzleSessionDao {
     fun getActiveSession(): Flow<PuzzleSession?>
 
     /**
+     * Get the most recent paused session (session with pausedAt != null and endTime == null).
+     * Used to prompt user to resume paused puzzles on home screen.
+     * @return Flow of the most recent paused session, or null if no paused session exists
+     */
+    @Query("SELECT * FROM puzzle_sessions WHERE pausedAt IS NOT NULL AND endTime IS NULL ORDER BY pausedAt DESC LIMIT 1")
+    fun getMostRecentPausedSession(): Flow<PuzzleSession?>
+
+    /**
      * Insert a new session into the database.
      * @param session The session to insert
      * @return The ID of the newly inserted session

@@ -24,7 +24,7 @@ class ViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> {
-                HomeViewModel(puzzleRepository) as T
+                HomeViewModel(puzzleRepository, sessionRepository) as T
             }
             modelClass.isAssignableFrom(NewPuzzleViewModel::class.java) -> {
                 NewPuzzleViewModel(puzzleRepository, sessionRepository) as T

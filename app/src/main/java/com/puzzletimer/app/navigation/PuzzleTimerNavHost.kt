@@ -38,6 +38,9 @@ fun PuzzleTimerNavHost(
                 },
                 onNavigateToPuzzleDetails = { puzzleId ->
                     navController.navigateToPuzzleDetails(puzzleId)
+                },
+                onNavigateToTimer = { sessionId ->
+                    navController.navigateToTimer(sessionId)
                 }
             )
         }
