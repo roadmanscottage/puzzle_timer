@@ -154,6 +154,39 @@ fun TimerScreen(
                     Text(if (isPaused) "Resume" else "Pause")
                 }
             }
+
+            // Save and Abandon Buttons (only visible when paused)
+            if (isPaused) {
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                actualViewModel.abandonSession()
+                                onNavigateBack()
+                            }
+                        },
+                        modifier = Modifier.widthIn(min = 120.dp)
+                    ) {
+                        Text("Abandon Session")
+                    }
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                actualViewModel.saveSession()
+                                onNavigateBack()
+                            }
+                        },
+                        modifier = Modifier.widthIn(min = 120.dp)
+                    ) {
+                        Text("Save Session")
+                    }
+                }
+            }
         }
     }
 
