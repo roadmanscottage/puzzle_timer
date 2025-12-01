@@ -30,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -56,13 +57,20 @@ fun HomeScreen(
     homeViewModel: HomeViewModel? = null,
     onNavigateToNewPuzzle: () -> Unit,
     onNavigateToSearch: () -> Unit,
-    onNavigateToPuzzleDetails: (Long) -> Unit
+    onNavigateToPuzzleDetails: (Long) -> Unit,
+    onNavigateToTimer: (Long) -> Unit
 ) {
     val actualViewModel = homeViewModel ?: viewModel(
         factory = ViewModelFactory.create(LocalContext.current)
     )
     val lastPuzzle by actualViewModel.lastCompletedPuzzle.collectAsState()
+    val pausedSessionInfo by actualViewModel.pausedSessionInfo.collectAsState()
     val isLoading by actualViewModel.isLoading.collectAsState()
+
+    // Reload data when home screen becomes visible
+    LaunchedEffect(Unit) {
+        actualViewModel.loadHomeScreenData()
+    }
 
     Scaffold(
         topBar = { HomeTopAppBar() },
@@ -75,14 +83,22 @@ fun HomeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Last Puzzle Section
+            // Display paused puzzle OR last completed puzzle (paused takes priority)
             if (!isLoading) {
-                if (lastPuzzle != null) {
+                if (pausedSessionInfo != null) {
+                    // Paused Session Prompt (Priority Display)
+                    PausedSessionPrompt(
+                        pausedSessionInfo = pausedSessionInfo!!,
+                        onResumeSession = { onNavigateToTimer(pausedSessionInfo!!.session.id) }
+                    )
+                } else if (lastPuzzle != null) {
+                    // Last Puzzle Section
                     LastPuzzleSection(
                         puzzle = lastPuzzle!!,
                         onViewDetails = { onNavigateToPuzzleDetails(lastPuzzle!!.id) }
                     )
                 } else {
+                    // Empty State
                     EmptyStateSection(onAddPuzzle = onNavigateToNewPuzzle)
                 }
             }
@@ -117,6 +133,105 @@ private fun HomeTopAppBar() {
             titleContentColor = MaterialTheme.colorScheme.onPrimary
         )
     )
+}
+
+/**
+ * Prominent card prompting user to resume a paused puzzle session
+ */
+@Composable
+private fun PausedSessionPrompt(
+    pausedSessionInfo: PausedSessionInfo,
+    onResumeSession: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Puzzle Image
+            AsyncImage(
+                model = pausedSessionInfo.puzzle.imageUri,
+                contentDescription = "Paused puzzle image",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f),
+                contentScale = ContentScale.Crop,
+                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(
+                    MaterialTheme.colorScheme.surfaceVariant
+                ),
+                error = androidx.compose.ui.graphics.painter.ColorPainter(
+                    MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+
+            // Prompt Details
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Title
+                Text(
+                    text = "Resume Your Puzzle",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                // Puzzle Name
+                Text(
+                    text = pausedSessionInfo.puzzle.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                // Session Info
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "${pausedSessionInfo.puzzle.pieceCount} pieces",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+
+                    Text(
+                        text = "Time: ${formatTime(pausedSessionInfo.session.elapsedTimeMillis)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+
+                // Paused timestamp
+                pausedSessionInfo.session.pausedAt?.let { pausedAt ->
+                    Text(
+                        text = "Paused on ${formatDate(pausedAt)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Resume Button
+                Button(
+                    onClick = onResumeSession,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Resume Puzzle")
+                }
+            }
+        }
+    }
 }
 
 /**

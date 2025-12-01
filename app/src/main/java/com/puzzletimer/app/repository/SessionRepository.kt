@@ -39,6 +39,15 @@ class SessionRepository(private val sessionDao: PuzzleSessionDao) {
     }
 
     /**
+     * Get the most recent paused session as a Flow.
+     * Used to prompt user to resume paused puzzles.
+     * @return Flow of the most recent paused session, or null if no paused session exists
+     */
+    fun getMostRecentPausedSession(): Flow<PuzzleSession?> {
+        return sessionDao.getMostRecentPausedSession()
+    }
+
+    /**
      * Insert a new session into the database.
      * @param session The session to insert
      * @return The ID of the newly inserted session

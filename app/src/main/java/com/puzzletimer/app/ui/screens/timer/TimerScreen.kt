@@ -104,65 +104,112 @@ fun TimerScreen(
                 .padding(paddingValues)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Puzzle Information
-            Text(
-                text = puzzleName,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // Top spacer to push content down slightly
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "$pieceCount pieces",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.secondary
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // Timer Display
-            TimerDisplay(elapsedTimeMillis)
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // Control Buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Center content: Puzzle info, timer, and primary controls
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                OutlinedButton(
-                    onClick = { showFinishDialog = true },
-                    modifier = Modifier.widthIn(min = 120.dp)
-                ) {
-                    Text("Finish")
-                }
+                // Puzzle Information
+                Text(
+                    text = puzzleName,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
 
-                Button(
-                    onClick = {
-                        scope.launch {
-                            if (isPaused) {
-                                actualViewModel.resumeTimer()
-                            } else {
-                                actualViewModel.pauseTimer()
-                            }
-                        }
-                    },
-                    modifier = Modifier.widthIn(min = 120.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "$pieceCount pieces",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+
+                Spacer(modifier = Modifier.height(48.dp))
+
+                // Timer Display
+                TimerDisplay(elapsedTimeMillis)
+
+                Spacer(modifier = Modifier.height(48.dp))
+
+                // Primary Control Buttons - Stop/Pause/Resume
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(if (isPaused) "Resume" else "Pause")
+                    OutlinedButton(
+                        onClick = { showFinishDialog = true },
+                        modifier = Modifier.widthIn(min = 120.dp)
+                    ) {
+                        Text("Stop")
+                    }
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                if (isPaused) {
+                                    actualViewModel.resumeTimer()
+                                } else {
+                                    actualViewModel.pauseTimer()
+                                }
+                            }
+                        },
+                        modifier = Modifier.widthIn(min = 120.dp)
+                    ) {
+                        Text(if (isPaused) "Resume" else "Pause")
+                    }
                 }
+            }
+
+            // Secondary Action Buttons - Save/Abandon Session (bottom, only visible when paused)
+            if (isPaused) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(bottom = 24.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    actualViewModel.abandonSession()
+                                    onNavigateBack()
+                                }
+                            },
+                            modifier = Modifier.widthIn(min = 140.dp)
+                        ) {
+                            Text("Abandon Session")
+                        }
+
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    actualViewModel.saveSession()
+                                    onNavigateBack()
+                                }
+                            },
+                            modifier = Modifier.widthIn(min = 140.dp)
+                        ) {
+                            Text("Save Session")
+                        }
+                    }
+                }
+            } else {
+                // Empty spacer when not paused to maintain layout consistency
+                Spacer(modifier = Modifier.height(48.dp))
             }
         }
     }
 
-    // Finish Confirmation Dialog
+    // Stop Timer Confirmation Dialog
     if (showFinishDialog) {
         AlertDialog(
             onDismissRequest = { showFinishDialog = false },
-            title = { Text("Finish Puzzle?") },
-            text = { Text("Are you sure you want to complete this puzzle session?") },
+            title = { Text("Stop Timer?") },
+            text = { Text("Are you sure you want to stop the timer and complete this puzzle session?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -173,7 +220,7 @@ fun TimerScreen(
                         }
                     }
                 ) {
-                    Text("Finish")
+                    Text("Stop")
                 }
             },
             dismissButton = {

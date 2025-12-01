@@ -38,6 +38,9 @@ fun PuzzleTimerNavHost(
                 },
                 onNavigateToPuzzleDetails = { puzzleId ->
                     navController.navigateToPuzzleDetails(puzzleId)
+                },
+                onNavigateToTimer = { sessionId ->
+                    navController.navigateToTimer(sessionId)
                 }
             )
         }
@@ -54,7 +57,11 @@ fun PuzzleTimerNavHost(
                     }
                 },
                 onNavigateToTimer = { sessionId ->
-                    navController.navigateToTimer(sessionId)
+                    // Remove NewPuzzle from back stack when starting timer
+                    // so back button from timer goes to home, not back to form
+                    navController.navigate("${Routes.Timer.route}/$sessionId") {
+                        popUpTo(Routes.NewPuzzle.route) { inclusive = true }
+                    }
                 }
             )
         }
@@ -80,7 +87,11 @@ fun PuzzleTimerNavHost(
                     }
                 },
                 onNavigateToPuzzleDetails = { puzzleId ->
-                    navController.navigateToPuzzleDetails(puzzleId)
+                    // When navigating from timer to puzzle details (after finishing),
+                    // remove timer screen from back stack so back button goes to home
+                    navController.navigate("${Routes.PuzzleDetails.route}/$puzzleId") {
+                        popUpTo("${Routes.Timer.route}/{sessionId}") { inclusive = true }
+                    }
                 }
             )
         }
@@ -106,7 +117,11 @@ fun PuzzleTimerNavHost(
                     }
                 },
                 onNavigateToTimer = { sessionId ->
-                    navController.navigateToTimer(sessionId)
+                    // Remove PuzzleDetails from back stack when starting/resuming timer
+                    // so back button from timer goes to home
+                    navController.navigate("${Routes.Timer.route}/$sessionId") {
+                        popUpTo("${Routes.PuzzleDetails.route}/{puzzleId}") { inclusive = true }
+                    }
                 }
             )
         }
