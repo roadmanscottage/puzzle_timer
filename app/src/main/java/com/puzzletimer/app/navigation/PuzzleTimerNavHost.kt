@@ -83,7 +83,11 @@ fun PuzzleTimerNavHost(
                     }
                 },
                 onNavigateToPuzzleDetails = { puzzleId ->
-                    navController.navigateToPuzzleDetails(puzzleId)
+                    // When navigating from timer to puzzle details (after finishing),
+                    // remove timer screen from back stack so back button goes to home
+                    navController.navigate("${Routes.PuzzleDetails.route}/$puzzleId") {
+                        popUpTo("${Routes.Timer.route}/{sessionId}") { inclusive = true }
+                    }
                 }
             )
         }
