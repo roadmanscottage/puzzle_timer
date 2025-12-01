@@ -51,7 +51,15 @@
       "Bash(winget install:*)",
       "Bash(gh auth login:*)",
       "Bash(gradlew.bat compileDebugKotlin:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git config:*)",
+      "Bash(gh repo create:*)",
+      "Bash(gradlew.bat build:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh label create:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(git merge:*)",
+      "Bash(gradlew.bat :app:compileDebugKotlin:*)"
     ],
     "deny": [],
     "ask": []

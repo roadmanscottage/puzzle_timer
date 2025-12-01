@@ -39,13 +39,21 @@ class TimerViewModel(
     private var timerJob: Job? = null
     private var currentSessionId: Long? = null
     private var pausedElapsedTime: Long = 0L
+    private var isSessionLoaded = false
 
     /**
      * Load a session by ID and initialize the timer state.
+     * Only loads once to prevent reset on configuration changes.
      * @param sessionId The ID of the session to load
      */
     fun loadSession(sessionId: Long) {
+        // Prevent re-loading on configuration changes (e.g., rotation)
+        if (isSessionLoaded && currentSessionId == sessionId) {
+            return
+        }
+
         currentSessionId = sessionId
+        isSessionLoaded = true
 
         viewModelScope.launch {
             // Load the session
@@ -164,6 +172,33 @@ class TimerViewModel(
         puzzleRepository.updatePuzzleStats(session.puzzleId, finalElapsedTime)
 
         return session.puzzleId
+    }
+
+    /**
+     * Save the current session and pause it so it can be resumed later.
+     */
+    suspend fun saveSession() {
+        // Pause the timer if it's running
+        if (_isRunning.value) {
+            pauseTimer()
+        }
+    }
+
+    /**
+     * Abandon the current session by deleting it from the database.
+     */
+    suspend fun abandonSession() {
+        _isRunning.value = false
+        _isPaused.value = false
+
+        timerJob?.cancel()
+        timerJob = null
+
+        val sessionId = currentSessionId ?: return
+        val session = sessionRepository.getSessionById(sessionId).firstOrNull() ?: return
+
+        // Delete the session from the database
+        sessionRepository.deleteSession(session)
     }
 
     override fun onCleared() {

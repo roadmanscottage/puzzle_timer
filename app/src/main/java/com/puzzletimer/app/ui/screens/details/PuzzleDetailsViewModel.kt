@@ -83,7 +83,7 @@ class PuzzleDetailsViewModel(
 
     /**
      * Delete a session from the database.
-     * Recalculates puzzle statistics and reloads the puzzle data to update the UI.
+     * Recalculates puzzle statistics. The UI will automatically update via Flow.
      * @param session The session to delete
      */
     fun deleteSession(session: PuzzleSession) {
@@ -95,8 +95,7 @@ class PuzzleDetailsViewModel(
                 val remainingSessions = sessionRepository.getSessionsForPuzzle(puzzleId).firstOrNull() ?: emptyList()
                 puzzleRepository.recalculatePuzzleStats(puzzleId, remainingSessions)
 
-                // Reload puzzle to update UI
-                loadPuzzle(puzzleId)
+                // No need to reload - Flow will automatically emit updated puzzle
             }
         }
     }
@@ -104,7 +103,7 @@ class PuzzleDetailsViewModel(
     /**
      * Restore a previously deleted session.
      * Used for undo functionality after swipe-to-delete.
-     * Recalculates puzzle statistics and reloads the puzzle data.
+     * Recalculates puzzle statistics. The UI will automatically update via Flow.
      * @param session The session to restore
      */
     fun restoreSession(session: PuzzleSession) {
@@ -116,8 +115,7 @@ class PuzzleDetailsViewModel(
                 val allSessions = sessionRepository.getSessionsForPuzzle(puzzleId).firstOrNull() ?: emptyList()
                 puzzleRepository.recalculatePuzzleStats(puzzleId, allSessions)
 
-                // Reload puzzle to update UI
-                loadPuzzle(puzzleId)
+                // No need to reload - Flow will automatically emit updated puzzle
             }
         }
     }

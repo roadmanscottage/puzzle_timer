@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.BackHandler
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.puzzletimer.app.ui.ViewModelFactory
 import kotlinx.coroutines.launch
@@ -66,7 +67,13 @@ fun TimerScreen(
 
     val scope = rememberCoroutineScope()
     var showFinishDialog by remember { mutableStateOf(false) }
+    var showBackDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // Handle system back button
+    BackHandler {
+        showBackDialog = true
+    }
 
     // Load session on first composition
     LaunchedEffect(sessionId) {
@@ -86,7 +93,7 @@ fun TimerScreen(
     Scaffold(
         topBar = {
             TimerTopAppBar(
-                onNavigateBack = onNavigateBack,
+                onNavigateBack = { showBackDialog = true },
                 onNavigateHome = onNavigateHome
             )
         }
@@ -176,6 +183,41 @@ fun TimerScreen(
             }
         )
     }
+
+    // Back Navigation Confirmation Dialog
+    if (showBackDialog) {
+        AlertDialog(
+            onDismissRequest = { showBackDialog = false },
+            title = { Text("Save Session?") },
+            text = { Text("Would you like to save this session to continue later, or abandon it?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            actualViewModel.saveSession()
+                            showBackDialog = false
+                            onNavigateBack()
+                        }
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            actualViewModel.abandonSession()
+                            showBackDialog = false
+                            onNavigateBack()
+                        }
+                    }
+                ) {
+                    Text("Abandon")
+                }
+            }
+        )
+    }
 }
 
 /**
@@ -192,7 +234,7 @@ private fun TimerTopAppBar(
         navigationIcon = {
             IconButton(onClick = onNavigateBack) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back"
                 )
             }
