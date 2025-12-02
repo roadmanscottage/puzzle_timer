@@ -365,14 +365,27 @@ private fun PuzzleTitleSection(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
-        Text(
-            text = "${puzzle.name}, ${puzzle.pieceCount} pieces",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
+        Column(
             modifier = Modifier.weight(1f)
-        )
+        ) {
+            Text(
+                text = "${puzzle.name}, ${puzzle.pieceCount} pieces",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            // Display brand if available
+            puzzle.brand?.let { brand ->
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = brand,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+        }
         IconButton(
             onClick = onEditClick,
             modifier = Modifier

@@ -62,6 +62,9 @@ fun PuzzleTimerNavHost(
                     navController.navigate("${Routes.Timer.route}/$sessionId") {
                         popUpTo(Routes.NewPuzzle.route) { inclusive = true }
                     }
+                },
+                onNavigateToSearch = {
+                    navController.navigateToSearch()
                 }
             )
         }

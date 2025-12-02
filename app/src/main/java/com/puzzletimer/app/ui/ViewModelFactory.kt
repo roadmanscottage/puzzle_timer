@@ -9,6 +9,7 @@ import com.puzzletimer.app.repository.SessionRepository
 import com.puzzletimer.app.ui.screens.details.PuzzleDetailsViewModel
 import com.puzzletimer.app.ui.screens.home.HomeViewModel
 import com.puzzletimer.app.ui.screens.newpuzzle.NewPuzzleViewModel
+import com.puzzletimer.app.ui.screens.search.SearchViewModel
 import com.puzzletimer.app.ui.screens.timer.TimerViewModel
 
 /**
@@ -34,6 +35,9 @@ class ViewModelFactory(
             }
             modelClass.isAssignableFrom(PuzzleDetailsViewModel::class.java) -> {
                 PuzzleDetailsViewModel(puzzleRepository, sessionRepository) as T
+            }
+            modelClass.isAssignableFrom(SearchViewModel::class.java) -> {
+                SearchViewModel(puzzleRepository) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

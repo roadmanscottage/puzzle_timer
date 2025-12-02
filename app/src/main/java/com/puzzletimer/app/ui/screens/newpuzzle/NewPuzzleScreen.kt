@@ -9,9 +9,11 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,12 +28,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -76,12 +81,14 @@ fun NewPuzzleScreen(
     newPuzzleViewModel: NewPuzzleViewModel? = null,
     onNavigateBack: () -> Unit,
     onNavigateHome: () -> Unit,
-    onNavigateToTimer: (Long) -> Unit
+    onNavigateToTimer: (Long) -> Unit,
+    onNavigateToSearch: () -> Unit = {}
 ) {
     val actualViewModel = newPuzzleViewModel ?: viewModel(
         factory = ViewModelFactory.create(LocalContext.current)
     )
     val puzzleName by actualViewModel.puzzleName.collectAsState()
+    val brand by actualViewModel.brand.collectAsState()
     val pieceCount by actualViewModel.pieceCount.collectAsState()
     val imageUri by actualViewModel.imageUri.collectAsState()
     val isValid by actualViewModel.isValid.collectAsState()
@@ -159,12 +166,25 @@ fun NewPuzzleScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Existing Puzzle Prompt Banner
+            ExistingPuzzlePrompt(onNavigateToSearch = onNavigateToSearch)
+
             // Puzzle Name TextField
             OutlinedTextField(
                 value = puzzleName,
                 onValueChange = { actualViewModel.updatePuzzleName(it) },
                 label = { Text("Puzzle Name") },
                 placeholder = { Text("e.g., Mountain Scenery") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Brand TextField
+            OutlinedTextField(
+                value = brand,
+                onValueChange = { actualViewModel.updateBrand(it) },
+                label = { Text("Brand (Optional)") },
+                placeholder = { Text("e.g., Ravensburger") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -288,6 +308,66 @@ private fun StartTimerButton(
             .height(56.dp)
     ) {
         Text("Start Timer")
+    }
+}
+
+/**
+ * Non-intrusive banner prompting users to search for existing puzzles
+ */
+@Composable
+private fun ExistingPuzzlePrompt(
+    onNavigateToSearch: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onNavigateToSearch() },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = "Completed this puzzle before?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Search",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
     }
 }
 
