@@ -158,7 +158,14 @@ fun TimerScreen(
                         },
                         modifier = Modifier.widthIn(min = 120.dp)
                     ) {
-                        Text(if (isPaused) "Resume" else "Pause")
+                        Text(
+                            if (isPaused) {
+                                // Show "Start" if timer hasn't been started yet (elapsed time is 0)
+                                if (elapsedTimeMillis == 0L) "Start" else "Resume"
+                            } else {
+                                "Pause"
+                            }
+                        )
                     }
                 }
             }

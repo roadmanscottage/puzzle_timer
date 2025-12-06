@@ -1,5 +1,6 @@
 package com.puzzletimer.app.ui.screens.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,14 +37,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.puzzletimer.app.R
 import com.puzzletimer.app.data.model.Puzzle
 import com.puzzletimer.app.ui.ViewModelFactory
+import com.puzzletimer.app.ui.theme.Accent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -351,11 +356,10 @@ private fun EmptyStateSection(onAddPuzzle: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Extension,
+        Image(
+            painter = painterResource(id = R.drawable.icon_24_padding),
             contentDescription = "Puzzle icon",
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            modifier = Modifier.size(80.dp)
         )
 
         Text(

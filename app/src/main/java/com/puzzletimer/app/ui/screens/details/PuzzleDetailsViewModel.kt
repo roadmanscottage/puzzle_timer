@@ -30,6 +30,9 @@ class PuzzleDetailsViewModel(
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _hasCompletedSessions = MutableStateFlow(false)
+    val hasCompletedSessions: StateFlow<Boolean> = _hasCompletedSessions.asStateFlow()
+
     private var _currentPuzzleId: Long? = null
 
     /**
@@ -52,13 +55,15 @@ class PuzzleDetailsViewModel(
             // Load the sessions for this puzzle
             sessionRepository.getSessionsForPuzzle(puzzleId).collect { sessionList ->
                 _sessions.value = sessionList
+                _hasCompletedSessions.value = sessionList.any { it.isCompleted }
                 _isLoading.value = false
             }
         }
     }
 
     /**
-     * Start a new session for the current puzzle.
+     * Start a new session for the current puzzle in a paused state.
+     * This allows the user to prepare before starting the timer.
      * @return The ID of the newly created session, or null if no puzzle is loaded
      */
     suspend fun startNewSession(): Long? {
@@ -66,7 +71,8 @@ class PuzzleDetailsViewModel(
 
         val session = PuzzleSession(
             puzzleId = puzzleId,
-            startTime = System.currentTimeMillis()
+            startTime = System.currentTimeMillis(),
+            pausedAt = System.currentTimeMillis() // Start in paused state
         )
 
         return sessionRepository.insertSession(session)
@@ -121,13 +127,15 @@ class PuzzleDetailsViewModel(
     }
 
     /**
-     * Update puzzle details (name, piece count, image).
+     * Update puzzle details (name, brand, piece count, image).
      * @param name The new puzzle name
+     * @param brand The new puzzle brand (or null)
      * @param pieceCount The new piece count
      * @param imageUri The new image URI (or null to keep existing)
      */
     suspend fun updatePuzzleDetails(
         name: String,
+        brand: String?,
         pieceCount: Int,
         imageUri: String?
     ): Result<Unit> {
@@ -145,6 +153,7 @@ class PuzzleDetailsViewModel(
         try {
             val updatedPuzzle = currentPuzzle.copy(
                 name = name.trim(),
+                brand = brand?.trim()?.ifBlank { null },
                 pieceCount = pieceCount,
                 imageUri = imageUri ?: currentPuzzle.imageUri
             )

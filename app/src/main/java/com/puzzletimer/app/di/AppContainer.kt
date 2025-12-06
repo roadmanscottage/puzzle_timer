@@ -4,6 +4,7 @@ import android.content.Context
 import com.puzzletimer.app.data.dao.PuzzleDao
 import com.puzzletimer.app.data.dao.PuzzleSessionDao
 import com.puzzletimer.app.data.database.AppDatabase
+import com.puzzletimer.app.data.preferences.UserPreferencesManager
 import com.puzzletimer.app.repository.PuzzleRepository
 import com.puzzletimer.app.repository.SessionRepository
 
@@ -47,5 +48,12 @@ class AppContainer(private val context: Context) {
      */
     val sessionRepository: SessionRepository by lazy {
         SessionRepository(puzzleSessionDao)
+    }
+
+    /**
+     * Lazily initialized UserPreferencesManager for user preferences using DataStore.
+     */
+    val userPreferencesManager: UserPreferencesManager by lazy {
+        UserPreferencesManager(context)
     }
 }

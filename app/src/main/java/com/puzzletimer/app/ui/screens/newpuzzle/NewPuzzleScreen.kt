@@ -81,7 +81,7 @@ fun NewPuzzleScreen(
     newPuzzleViewModel: NewPuzzleViewModel? = null,
     onNavigateBack: () -> Unit,
     onNavigateHome: () -> Unit,
-    onNavigateToTimer: (Long) -> Unit,
+    onNavigateToPuzzleDetails: (Long) -> Unit,
     onNavigateToSearch: () -> Unit = {}
 ) {
     val actualViewModel = newPuzzleViewModel ?: viewModel(
@@ -147,12 +147,12 @@ fun NewPuzzleScreen(
             )
         },
         bottomBar = {
-            StartTimerButton(
+            SavePuzzleButton(
                 enabled = isValid,
                 onClick = {
                     scope.launch {
-                        val sessionId = actualViewModel.startTimer()
-                        sessionId?.let { onNavigateToTimer(it) }
+                        val puzzleId = actualViewModel.savePuzzle()
+                        puzzleId?.let { onNavigateToPuzzleDetails(it) }
                     }
                 }
             )
@@ -237,13 +237,17 @@ fun NewPuzzleScreen(
                                 Manifest.permission.CAMERA
                             ) == PackageManager.PERMISSION_GRANTED -> {
                                 // Permission already granted
-                                val photoFile = createImageFile(context)
-                                tempCameraUri = FileProvider.getUriForFile(
-                                    context,
-                                    "com.puzzletimer.app.fileprovider",
-                                    photoFile
-                                )
-                                cameraLauncher.launch(tempCameraUri)
+                                try {
+                                    val photoFile = createImageFile(context)
+                                    tempCameraUri = FileProvider.getUriForFile(
+                                        context,
+                                        "com.puzzletimer.app.fileprovider",
+                                        photoFile
+                                    )
+                                    cameraLauncher.launch(tempCameraUri)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
                             }
                             else -> {
                                 // Request permission
@@ -292,10 +296,10 @@ private fun NewPuzzleTopAppBar(
 }
 
 /**
- * Bottom button to start the timer
+ * Bottom button to save the puzzle
  */
 @Composable
-private fun StartTimerButton(
+private fun SavePuzzleButton(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
@@ -307,7 +311,7 @@ private fun StartTimerButton(
             .padding(16.dp)
             .height(56.dp)
     ) {
-        Text("Start Timer")
+        Text("Save")
     }
 }
 

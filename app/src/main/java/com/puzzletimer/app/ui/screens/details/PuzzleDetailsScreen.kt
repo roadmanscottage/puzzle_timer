@@ -1,10 +1,19 @@
 package com.puzzletimer.app.ui.screens.details
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Locale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,9 +36,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
@@ -81,9 +92,7 @@ import com.puzzletimer.app.data.model.Puzzle
 import com.puzzletimer.app.data.model.PuzzleSession
 import com.puzzletimer.app.ui.ViewModelFactory
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 /**
  * Puzzle Details screen - displays details and history for a puzzle
@@ -103,6 +112,7 @@ fun PuzzleDetailsScreen(
     val puzzle by actualViewModel.puzzle.collectAsState()
     val sessions by actualViewModel.sessions.collectAsState()
     val isLoading by actualViewModel.isLoading.collectAsState()
+    val hasCompletedSessions by actualViewModel.hasCompletedSessions.collectAsState()
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -135,7 +145,9 @@ fun PuzzleDetailsScreen(
                         }
                     },
                     icon = { Icon(Icons.Default.PlayArrow, "Start") },
-                    text = { Text("Do Puzzle Again") }
+                    text = {
+                        Text(if (hasCompletedSessions) "Do Puzzle Again" else "Start Puzzle")
+                    }
                 )
             }
         },
@@ -219,7 +231,10 @@ fun PuzzleDetailsScreen(
                         }
                     }
                 } else {
-                    items(sessions) { session ->
+                    items(
+                        items = sessions,
+                        key = { session -> session.id }
+                    ) { session ->
                         SessionHistoryItem(
                             session = session,
                             onDelete = { deletedSession ->
@@ -258,9 +273,9 @@ fun PuzzleDetailsScreen(
         EditPuzzleDialog(
             puzzle = puzzle!!,
             onDismiss = { showEditDialog = false },
-            onSave = { name, pieceCount, imageUri ->
+            onSave = { name, brand, pieceCount, imageUri ->
                 scope.launch {
-                    val result = actualViewModel.updatePuzzleDetails(name, pieceCount, imageUri)
+                    val result = actualViewModel.updatePuzzleDetails(name, brand, pieceCount, imageUri)
                     if (result.isSuccess) {
                         showEditDialog = false
                         snackbarHostState.showSnackbar(
@@ -521,13 +536,11 @@ private fun SessionHistoryItem(
     onDelete: (PuzzleSession) -> Unit,
     onResume: (PuzzleSession) -> Unit
 ) {
-    var isDismissed by remember { mutableStateOf(false) }
     val isPaused = session.pausedAt != null && !session.isCompleted
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = {
             if (it == SwipeToDismissBoxValue.StartToEnd || it == SwipeToDismissBoxValue.EndToStart) {
-                isDismissed = true
                 onDelete(session)
                 true
             } else {
@@ -682,39 +695,65 @@ private fun formatDate(timestamp: Long?): String {
 }
 
 /**
- * Dialog for editing puzzle details (name, piece count, image).
+ * Dialog for editing puzzle details (name, brand, piece count, image).
  */
 @Composable
 private fun EditPuzzleDialog(
     puzzle: Puzzle,
     onDismiss: () -> Unit,
-    onSave: (name: String, pieceCount: Int, imageUri: String?) -> Unit
+    onSave: (name: String, brand: String?, pieceCount: Int, imageUri: String?) -> Unit
 ) {
     var editedName by remember { mutableStateOf(puzzle.name) }
+    var editedBrand by remember { mutableStateOf(puzzle.brand ?: "") }
     var editedPieceCount by remember { mutableStateOf(puzzle.pieceCount.toString()) }
     var editedImageUri by remember { mutableStateOf<String?>(puzzle.imageUri) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var pieceCountError by remember { mutableStateOf<String?>(null) }
+    var showImagePickerDialog by remember { mutableStateOf(false) }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
     val context = LocalContext.current
 
-    // Photo picker launcher
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
+    // Gallery picker launcher
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            // Take persistable URI permission
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    it,
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                editedImageUri = it.toString()
-            } catch (e: SecurityException) {
-                // If we can't get persistable permission, still use the URI
-                // (it might work for this session)
+            // Copy to app storage
+            val savedUri = copyImageToAppStorageForEdit(context, it)
+            savedUri?.let { editedImageUri = it.toString() }
+        }
+    }
+
+    // Camera launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            tempCameraUri?.let {
                 editedImageUri = it.toString()
             }
+        }
+    }
+
+    // Camera permission launcher
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            try {
+                val photoFile = createImageFileForEdit(context)
+                tempCameraUri = FileProvider.getUriForFile(
+                    context,
+                    "com.puzzletimer.app.fileprovider",
+                    photoFile
+                )
+                cameraLauncher.launch(tempCameraUri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Camera permission denied", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -744,6 +783,16 @@ private fun EditPuzzleDialog(
                     label = { Text("Puzzle Name") },
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                // Brand Field
+                OutlinedTextField(
+                    value = editedBrand,
+                    onValueChange = { editedBrand = it },
+                    label = { Text("Brand (Optional)") },
+                    placeholder = { Text("e.g., Ravensburger") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -785,9 +834,7 @@ private fun EditPuzzleDialog(
                             .fillMaxWidth()
                             .height(150.dp)
                             .clickable {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                showImagePickerDialog = true
                             },
                         shape = RoundedCornerShape(8.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -832,9 +879,7 @@ private fun EditPuzzleDialog(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                showImagePickerDialog = true
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -864,6 +909,7 @@ private fun EditPuzzleDialog(
                 onClick = {
                     // Validate before saving
                     val name = editedName.trim()
+                    val brand = editedBrand.trim().ifBlank { null }
                     val pieceCount = editedPieceCount.toIntOrNull()
 
                     when {
@@ -871,7 +917,7 @@ private fun EditPuzzleDialog(
                         pieceCount == null -> pieceCountError = "Must be a valid number"
                         pieceCount <= 0 -> pieceCountError = "Must be greater than 0"
                         else -> {
-                            onSave(name, pieceCount, editedImageUri)
+                            onSave(name, brand, pieceCount, editedImageUri)
                         }
                     }
                 },
@@ -887,4 +933,90 @@ private fun EditPuzzleDialog(
             }
         }
     )
+
+    // Image picker dialog (Gallery vs Camera)
+    if (showImagePickerDialog) {
+        AlertDialog(
+            onDismissRequest = { showImagePickerDialog = false },
+            title = { Text("Choose Image Source") },
+            text = { Text("Select an image from your gallery or take a new photo") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showImagePickerDialog = false
+                        galleryLauncher.launch("image/*")
+                    }
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Gallery")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showImagePickerDialog = false
+                        // Check and request camera permission
+                        when {
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED -> {
+                                // Permission already granted
+                                try {
+                                    val photoFile = createImageFileForEdit(context)
+                                    tempCameraUri = FileProvider.getUriForFile(
+                                        context,
+                                        "com.puzzletimer.app.fileprovider",
+                                        photoFile
+                                    )
+                                    cameraLauncher.launch(tempCameraUri)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            else -> {
+                                // Request permission
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        }
+                    }
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Camera")
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Helper function to create a temporary image file for camera capture
+ */
+private fun createImageFileForEdit(context: Context): File {
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    return File.createTempFile("PUZZLE_${timeStamp}_", ".jpg", storageDir)
+}
+
+/**
+ * Helper function to copy image from gallery to app storage
+ */
+private fun copyImageToAppStorageForEdit(context: Context, sourceUri: Uri): Uri? {
+    return try {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val fileName = "PUZZLE_${timeStamp}.jpg"
+        val destFile = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), fileName)
+
+        context.contentResolver.openInputStream(sourceUri)?.use { input ->
+            destFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        Uri.fromFile(destFile)
+    } catch (e: Exception) {
+        null
+    }
 }
