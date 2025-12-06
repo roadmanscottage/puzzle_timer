@@ -4,11 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.puzzletimer.app.PuzzleTimerApplication
+import com.puzzletimer.app.data.preferences.UserPreferencesManager
 import com.puzzletimer.app.repository.PuzzleRepository
 import com.puzzletimer.app.repository.SessionRepository
 import com.puzzletimer.app.ui.screens.details.PuzzleDetailsViewModel
 import com.puzzletimer.app.ui.screens.home.HomeViewModel
 import com.puzzletimer.app.ui.screens.newpuzzle.NewPuzzleViewModel
+import com.puzzletimer.app.ui.screens.search.SearchViewModel
 import com.puzzletimer.app.ui.screens.timer.TimerViewModel
 
 /**
@@ -17,7 +19,8 @@ import com.puzzletimer.app.ui.screens.timer.TimerViewModel
  */
 class ViewModelFactory(
     private val puzzleRepository: PuzzleRepository,
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val userPreferencesManager: UserPreferencesManager
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -35,6 +38,9 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(PuzzleDetailsViewModel::class.java) -> {
                 PuzzleDetailsViewModel(puzzleRepository, sessionRepository) as T
             }
+            modelClass.isAssignableFrom(SearchViewModel::class.java) -> {
+                SearchViewModel(puzzleRepository, userPreferencesManager) as T
+            }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
@@ -50,7 +56,8 @@ class ViewModelFactory(
             val container = application.container
             return ViewModelFactory(
                 puzzleRepository = container.puzzleRepository,
-                sessionRepository = container.sessionRepository
+                sessionRepository = container.sessionRepository,
+                userPreferencesManager = container.userPreferencesManager
             )
         }
     }

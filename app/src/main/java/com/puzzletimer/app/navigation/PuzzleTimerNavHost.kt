@@ -56,12 +56,15 @@ fun PuzzleTimerNavHost(
                         popUpTo(Routes.Home.route) { inclusive = false }
                     }
                 },
-                onNavigateToTimer = { sessionId ->
-                    // Remove NewPuzzle from back stack when starting timer
-                    // so back button from timer goes to home, not back to form
-                    navController.navigate("${Routes.Timer.route}/$sessionId") {
+                onNavigateToPuzzleDetails = { puzzleId ->
+                    // Navigate to puzzle details after saving
+                    // Remove NewPuzzle from back stack so back button goes to home
+                    navController.navigate("${Routes.PuzzleDetails.route}/$puzzleId") {
                         popUpTo(Routes.NewPuzzle.route) { inclusive = true }
                     }
+                },
+                onNavigateToSearch = {
+                    navController.navigateToSearch()
                 }
             )
         }

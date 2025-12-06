@@ -24,6 +24,9 @@ class NewPuzzleViewModel(
     private val _puzzleName = MutableStateFlow("")
     val puzzleName: StateFlow<String> = _puzzleName.asStateFlow()
 
+    private val _brand = MutableStateFlow("")
+    val brand: StateFlow<String> = _brand.asStateFlow()
+
     private val _pieceCount = MutableStateFlow("")
     val pieceCount: StateFlow<String> = _pieceCount.asStateFlow()
 
@@ -63,6 +66,14 @@ class NewPuzzleViewModel(
     }
 
     /**
+     * Update the puzzle brand in the form.
+     * @param brand The new puzzle brand
+     */
+    fun updateBrand(brand: String) {
+        _brand.value = brand
+    }
+
+    /**
      * Update the piece count in the form.
      * @param count The new piece count as a string
      */
@@ -79,6 +90,28 @@ class NewPuzzleViewModel(
     }
 
     /**
+     * Save a new puzzle without starting a timer session.
+     * @return The ID of the newly created puzzle, or null if creation failed
+     */
+    suspend fun savePuzzle(): Long? {
+        if (!_isValid.value) return null
+
+        val pieceCountInt = _pieceCount.value.toIntOrNull() ?: return null
+
+        // Create the puzzle
+        val puzzle = Puzzle(
+            name = _puzzleName.value.trim(),
+            pieceCount = pieceCountInt,
+            imageUri = _imageUri.value,
+            brand = _brand.value.trim().takeIf { it.isNotEmpty() }
+        )
+
+        val puzzleId = puzzleRepository.insertPuzzle(puzzle)
+
+        return puzzleId
+    }
+
+    /**
      * Create a new puzzle and start a timer session.
      * @return The ID of the newly created session, or null if creation failed
      */
@@ -91,7 +124,8 @@ class NewPuzzleViewModel(
         val puzzle = Puzzle(
             name = _puzzleName.value.trim(),
             pieceCount = pieceCountInt,
-            imageUri = _imageUri.value
+            imageUri = _imageUri.value,
+            brand = _brand.value.trim().takeIf { it.isNotEmpty() }
         )
 
         val puzzleId = puzzleRepository.insertPuzzle(puzzle)

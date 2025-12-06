@@ -28,6 +28,12 @@ data class Puzzle(
     val imageUri: String? = null,
 
     /**
+     * Brand or manufacturer of the puzzle (e.g., "Ravensburger", "Buffalo Games")
+     * Nullable for backward compatibility with existing database entries
+     */
+    val brand: String? = null,
+
+    /**
      * Timestamp when the puzzle was first completed (nullable if never completed)
      */
     val firstCompletedDate: Long? = null,
